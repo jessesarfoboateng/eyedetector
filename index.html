@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Eye Detection with Beep</title>
+  <style>
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+      font-family: Arial, sans-serif;
+    }
+    video {
+      border: 2px solid #000;
+      border-radius: 10px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Eye Detection</h1>
+  <video id="video" autoplay muted playsinline></video>
+  <button id="start">Start Detection</button>
+  <audio id="beep" src="scripts/beep-125033.mp3"></audio> <!-- Ensure the file exists in the correct location -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/face-landmarks-detection"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl"></script>
+  <script>
+    const video = document.getElementById("video");
+    const beep = document.getElementById("beep");
+    const startButton = document.getElementById("start");
+
+    async function setupCamera() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        video.srcObject = stream;
+        return new Promise((resolve) => {
+          video.onloadedmetadata = () => resolve(video);
+        });
+      } catch (error) {
+        console.error("Error accessing the camera:", error);
+      }
+    }
+
+    async function detectEyes() {
+      const model = await faceLandmarksDetection.load(
+        faceLandmarksDetection.SupportedPackages.mediapipeFacemesh
+      );
+
+      const detect = async () => {
+        const predictions = await model.estimateFaces({ input: video });
+        if (predictions.length > 0) {
+          for (const prediction of predictions) {
+            const leftEye = prediction.annotations.leftEyeUpper0;
+            const rightEye = prediction.annotations.rightEyeUpper0;
+
+            // Detect if eyes are open based on keypoints
+            const leftEyeOpen = leftEye[3][1] - leftEye[1][1] > 5; // Adjust threshold
+            const rightEyeOpen = rightEye[3][1] - rightEye[1][1] > 5;
+
+            if (leftEyeOpen && rightEyeOpen) {
+              beep.play().catch((error) => {
+                console.error("Error playing beep:", error);
+              });
+            }
+          }
+        }
+        requestAnimationFrame(detect);
+      };
+      detect();
+    }
+
+    document.body.addEventListener('click', () => {
+      beep.play();
+    });
+
+    beep.addEventListener('canplaythrough', () => {
+      console.log('Audio is ready to play');
+    });
+
+    beep.play().catch((error) => {
+      console.error('Error playing audio:', error);
+    });
+    
+    
+    
+
+    startButton.addEventListener("click", async () => {
+      await setupCamera();
+      detectEyes();
+    });
+  </script>
+</body>
+</html>
